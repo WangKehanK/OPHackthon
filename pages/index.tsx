@@ -1,66 +1,70 @@
 import type { NextPage } from 'next'
-import Head from 'next/head'
-import Link from 'next/link'
-import { Web3Button, Web3Address } from '../components/'
-import { ethers } from "ethers";
-import CTDaoABI from "../contracts/CTDao.json";
+import { NFTCard } from '../components/NFTCard';
+import { useState } from 'react'
+import { useWeb3Context } from '../context/'
 import { toast } from 'react-toastify'
-import { useWeb3Context } from '../context';
+import { Web3Address } from '../components';
 
 const Home: NextPage = () => {
   const {web3Provider, address, connect} = useWeb3Context();
-  
-  const handleClick = async () =>{
+  const [collection, setCollectionAddress] = useState("");
+  const [NFTs, setNFTs] = useState([])
+
+  const fetchNFTs = async() => {
+
     if (!web3Provider) {
       if (connect) await connect();
       else toast.error("No web3 provider found");
-    }else {
-      await web3Provider.send("eth_requestAccounts", []);
-      const signer = await web3Provider.getSigner();
-      const erc1155 = new ethers.Contract(
-        "0x99833F5F96ed198E2e7aFb1F6eA9667aCf82b33F", CTDaoABI, signer);
-      try {
-        await erc1155.mint(0, 1);
-      } catch (e: any) {
-        toast.error(e.message);
+    } else {
+      let nfts; 
+      console.log("fetching nfts");
+      const api_key = "4isvRXMrm4Rwdws4Wb1tJxPmkOvCN1i0"
+      const baseURL = `https://eth-mainnet.alchemyapi.io/v2/${api_key}/getNFTs/`;
+
+      if (!collection.length) {
+        var requestOptions = {
+          method: 'GET'
+        };
+      
+        const fetchURL = `${baseURL}?owner=${address}`;
+        nfts = await fetch(fetchURL, requestOptions).then(data => data.json())
+      } else {
+        var requestOptions = {
+          method: 'GET'
+        };
+        console.log("fetching nfts for collection owned by address")
+        const fetchURL = `${baseURL}?owner=${address}&contractAddresses%5B%5D=${collection}`;
+        nfts= await fetch(fetchURL, requestOptions).then(data => data.json())
       }
-    }
+      if (nfts) {
+        console.log("nfts:", nfts)
+        setNFTs(nfts.ownedNfts)
+      }
+  }
   }
 
-  const handleError = () =>{
-    toast.error('Please connect wallet first')
-  }
   return (
-    <div className="flex h-screen flex-col">
-      <Head>
-        <title>Web3 Next-Boilerplate</title>
-        <meta name="description" content="Boilerplate for Web3 dApp" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
-      <nav className="flex flex-row justify-between p-4">
-        <Link href="/about" className="text-lg font-light">
-          About
-        </Link>
-        <Web3Button />
-      </nav>
-
-      <main className="grow p-8 text-center">
-        <h1 className="pb-8 text-4xl font-bold">Home Page</h1>
+    <div className="flex flex-col items-center justify-center py-8 gap-y-3">
+      <div className="flex flex-col w-full justify-center items-center gap-y-2">
         <Web3Address />
+        {/* <input disabled={fetchForCollection}  className="w-2/5 bg-slate-100 py-2 px-2 rounded-lg text-gray-800 focus:outline-blue-300 disabled:bg-slate-50 disabled:text-gray-50" onChange={(e)=>{setWalletAddress(e.target.value)}} value={wallet} type={"text"} placeholder="Add your wallet address"></input> */}
+        <button className={"disabled:bg-slate-500 text-white bg-blue-400 px-4 py-2 mt-3 rounded-sm w-1/5"} onClick={
+          () => {
+            fetchNFTs()
+          }
+        }>Search NFT </button>
+      </div>
+      <div className='flex flex-wrap gap-y-12 mt-4 w-5/6 gap-x-2 justify-center'>
         {
-          address == null ?
-          <button onClick={handleClick}> Disabled Mint</button>
-          : <button onClick={handleClick}> Mint</button>
+          NFTs.length && NFTs.map(nft => {
+            return (
+              <NFTCard nft={nft}></NFTCard>
+            )
+          })
         }
-        
-      </main>
-
-      <footer className="justify-end p-4">
-        <p className="text-lg font-light">Footer</p>
-      </footer>
+      </div>
     </div>
-  );
+  )
 }
 
-export default Home
+export default Home;
